@@ -1,0 +1,13 @@
+
+> how does shifting work ? 
+  > filter2pcm gives float
+  > dot = patch_xb @ f_wb
+  > adc(dot = patch_xb @ f_wb)
+  
+def adc(x, roff, ron):
+    gon = 1. / ron
+    goff = 1./ roff
+    
+    y = (x - (8 * goff)) / (gon - goff)
+    y = round(y)
+    return y
