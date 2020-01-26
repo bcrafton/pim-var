@@ -77,7 +77,7 @@ def adc(x, roff, ron, rows_per_read):
 
 ##############################
 
-def conv(x, f, b, q, stride, pad1, pad2, kernel='digital'):
+def conv(x, f, b, q, stride, pad1, pad2):
     Hi, Wi, Ci = np.shape(x)
     Fh, Fw, _, Co = np.shape(f)
     Ho = conv_output_length(Hi, Fh, 'same', stride)
@@ -87,32 +87,51 @@ def conv(x, f, b, q, stride, pad1, pad2, kernel='digital'):
 
     p = np.zeros(shape=(Ho, Wo, Fh * Fw * Ci))
     y = np.zeros(shape=(Ho, Wo, Co))
+    
+    f_matrix = np.reshape(f, (Fh * Fw * Ci, Co))
 
     for h in range(Ho):        
         for w in range(Wo):
             patch = np.reshape(x[h*stride:(h*stride+Fh), w*stride:(w*stride+Fw), :], -1)
             assert(np.prod(np.shape(patch)) == np.prod(np.shape(f)[0:3])) # check {stride, pad1, pad2}
             p[h, w, :] = patch
-            if kernel == 'digital': 
-                f_matrix = np.reshape(f, (Fh * Fw * Ci, Co))
-                y[h, w, :] = conv_kernel(patch, f_matrix, b, q)
-            elif kernel == 'pcm':
-                pcm = filter2pcm(f=f, nbit=4, var=0., roff=2000000, ron=25000)
-                y[h, w, :] = pcm_conv_kernel(patch, pcm, b, q, 4, 4, 8)
-            else: 
-                assert (False)
+            y[h, w, :] = conv_kernel(patch, f_matrix, b, q)
 
     return y, p
 
 def conv_kernel(patch, f, b, q):
     y = patch @ f
     assert(np.all(np.absolute(y) < 2 ** 15))
-    # y = y + b
-    # y = y * (y > 0)
-    # y = y // q 
-    # y = np.clip(y, 0, 15)
+    y = y + b
+    y = y * (y > 0)
+    y = y // q 
+    y = np.clip(y, 0, 15)
     y = y.astype(int)
     return y
+    
+##############################
+    
+def pcm_conv(x, f, b, q, stride, pad1, pad2):
+    Hi, Wi, Ci = np.shape(x)
+    Fh, Fw, _, Co = np.shape(f)
+    Ho = conv_output_length(Hi, Fh, 'same', stride)
+    Wo = conv_output_length(Hi, Fw, 'same', stride)
+
+    x = np.pad(array=x, pad_width=[[pad1,pad2], [pad1,pad2], [0,0]], mode='constant')
+
+    p = np.zeros(shape=(Ho, Wo, Fh * Fw * Ci))
+    y = np.zeros(shape=(Ho, Wo, Co))
+    
+    pcm = filter2pcm(f=f, nbit=4, var=0.06, roff=2000000, ron=25000)
+
+    for h in range(Ho):        
+        for w in range(Wo):
+            patch = np.reshape(x[h*stride:(h*stride+Fh), w*stride:(w*stride+Fw), :], -1)
+            assert(np.prod(np.shape(patch)) == np.prod(np.shape(f)[0:3])) # check {stride, pad1, pad2}
+            p[h, w, :] = patch
+            y[h, w, :] = pcm_conv_kernel(patch, pcm, b, q, 4, 4, 8)
+
+    return y, p
 
 def pcm_conv_kernel(patch, pcm, b, q, bit_per_act, bit_per_weight, rows_per_read):
     y = 0
@@ -135,10 +154,10 @@ def pcm_conv_kernel(patch, pcm, b, q, bit_per_act, bit_per_weight, rows_per_read
         y = y - offset
 
     assert(np.all(y < 2 ** 15))
-    # y = y + b
-    # y = y * (y > 0)
-    # y = y // q 
-    # y = np.clip(y, 0, 15)
+    y = y + b
+    y = y * (y > 0)
+    y = y // q 
+    y = np.clip(y, 0, 15)
     y = y.astype(int)
     return y
 
@@ -149,7 +168,6 @@ todo items:
 1) if all 16 rows are 1, then our adc is wrong.
 2) make sure shallow copies not breaking things with {x, filter}
 3) problem was {offset/rows_per_read}... offset depends on this.
-
 '''
 
 x1 = np.copy(x_train[0])
@@ -158,15 +176,11 @@ f1 = np.copy(conv1)
 x2 = np.copy(x_train[0])
 f2 = np.copy(conv1)
 
-y1, p1 = conv(x=x1, f=f1, b=conv1_bias, q=conv1_quant, stride=1, pad1=1, pad2=2, kernel='digital')
-y2, p2 = conv(x=x2, f=f2, b=conv1_bias, q=conv1_quant, stride=1, pad1=1, pad2=2, kernel='pcm')
-
-print (np.shape(y1))
-print (np.shape(y2))
+y1, p1 = conv(x=x1, f=f1, b=conv1_bias, q=conv1_quant, stride=1, pad1=1, pad2=2)
+y2, p2 = pcm_conv(x=x2, f=f2, b=conv1_bias, q=conv1_quant, stride=1, pad1=1, pad2=2)
 
 print (np.count_nonzero(y1 == y2), np.prod(np.shape(y1)))
-print (y1[0][0])
-print (y2[0][0])
+print (np.all(y1 == y2))
 
 ##############################
 '''
