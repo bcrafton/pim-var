@@ -63,7 +63,8 @@ probably still worth scoping the space a little bit.
 
 ------
 
-
+picturing this as the sum of all the PCM normal distributions should allow us to call '.pdf()'
+then we can see the odds of getting the good answer, and odds of getting wrong answer.
 
 
 
