@@ -41,4 +41,47 @@ steps:
 > instead of count_nonzero(y1 == y2)
 > expected number of errors * size of error
 
+------
+
+> https://docs.scipy.org/doc/scipy/reference/tutorial/stats.html
+how can we add distributions together ??
+
+we want to add a bunch of norms together
+then get the probability density function of the expected value of the dot product.
+then we can integrate that 
+and come up with our goodness metric.
+
+> http://pacal.sourceforge.net/
+with scipy it dosnt seem like we can operate on random variables the way we want to.
+
+sort of weird scipy dosnt have this functionality.
+if we are going to use only 2 distribtions, maybe we can handle it our selves
+> adding normal distributions together is not difficult.
+
+maybe we can use this library initially, then move away from it once we figure things out
+probably still worth scoping the space a little bit.
+
+------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
